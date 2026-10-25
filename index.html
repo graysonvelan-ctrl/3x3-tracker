@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3x3 Box Score & Lineup Tracker</title>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#1a212b; --panel2:#222c38; --line:#2e3a48;
+    --text:#e8edf2; --muted:#9aa7b4; --a:#3b82f6; --b:#ef4444;
+    --green:#22c55e; --red:#f87171; --accent:#f59e0b; --star:#facc15;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       background:var(--bg); color:var(--text); font-size:16px;}
+  h1,h2,h3{margin:0 0 .4em;}
+  button{font-family:inherit; cursor:pointer; border:none; border-radius:9px; color:#fff; font-weight:600;}
+  button:active{transform:scale(.96);}
+  button:disabled{opacity:.28; cursor:default;}
+  input{font-family:inherit; font-size:16px; padding:8px 10px; border-radius:8px;
+       border:1px solid var(--line); background:#0c1117; color:var(--text);}
+  .wrap{max-width:1200px; margin:0 auto; padding:14px;}
+  .muted{color:var(--muted);}
+  .hidden{display:none !important;}
+  .row{display:flex; gap:10px; flex-wrap:wrap;}
+  .grow{flex:1;}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:14px;}
+  .btn{padding:12px 16px; background:var(--accent); color:#221700; font-size:16px;}
+  .btn.primary{background:var(--green); color:#04230f;}
+  .btn.ghost{background:var(--panel2); color:var(--text);}
+  .hint{font-size:13px; color:var(--muted); margin-top:4px;}
+
+  /* Setup roster */
+  .rosterRow{display:flex; gap:8px; margin-bottom:6px; align-items:center;}
+  .rosterRow input.num{width:60px;}
+  .rosterRow input.nm{flex:1;}
+  .rosterRow .pick{width:44px; height:38px; border-radius:8px; background:var(--panel2); color:var(--muted); font-size:16px;}
+  .rosterRow .pick.on{background:var(--star); color:#3a2c00;}
+  .rosterRow .del{width:38px; height:38px; background:#3a2530; color:#f1a3b3;}
+
+  /* Live */
+  .topbar{position:sticky; top:0; z-index:20; background:var(--bg); padding:8px 0 10px; border-bottom:1px solid var(--line); margin-bottom:10px;}
+  .scoreboard{display:flex; align-items:center; justify-content:center; gap:14px; font-weight:800;}
+  .scoreboard .sc{font-size:32px; line-height:1; min-width:48px; text-align:center;}
+  .scoreboard .nm{font-size:12px; font-weight:600; color:var(--muted); text-align:center; max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .scoreboard .vs{font-size:15px; color:var(--muted);}
+  .topActions{display:flex; gap:8px; justify-content:center; margin-top:8px; flex-wrap:wrap;}
+  .topActions button{padding:9px 14px; font-size:14px;}
+
+  .teamCard{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:12px; margin-bottom:14px;}
+  .teamCard.A{border-top:4px solid var(--a);}
+  .teamCard.B{border-top:4px solid var(--b);}
+  .tcHead{display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap;}
+  .tcHead .tn{font-size:17px; font-weight:800;}
+  .tcHead .oc{font-size:12px; color:var(--muted);}
+  .possBtn{padding:12px 16px; font-size:15px; background:var(--accent); color:#221700;}
+  .possBtn.def{background:#8b5cf6; color:#fff;}
+
+  .gridScroll{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  .statGrid{display:grid; grid-template-columns:150px repeat(10, 44px); gap:6px; min-width:640px; align-items:center;}
+  .statGrid .hcell{font-size:10px; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); text-align:center; padding-bottom:2px;}
+  .statGrid .hcell.name{text-align:left;}
+  .pcell{display:flex; align-items:center; gap:6px; min-width:0;}
+  .starbtn{width:30px; height:30px; border-radius:7px; background:var(--panel2); color:var(--muted); font-size:15px; flex:none;}
+  .starbtn.on{background:var(--star); color:#3a2c00;}
+  .pinfo{min-width:0;}
+  .pinfo .pn{font-size:14px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .pinfo .pmi{font-size:11px; color:var(--muted);}
+  .sbtn{height:42px; border-radius:8px; font-size:15px; font-weight:700; background:var(--panel2);}
+  .A .sbtn.pt{background:#1b2c47;} .A .sbtn.pt:active{background:var(--a);}
+  .A .sbtn.rb{background:#173a2a;} .A .sbtn.rb:active{background:var(--green);}
+  .A .sbtn.ao{background:#3a2f14;} .A .sbtn.ao:active{background:var(--accent);}
+  .B .sbtn.pt{background:#3a1f24;} .B .sbtn.pt:active{background:var(--b);}
+  .B .sbtn.rb{background:#173a2a;} .B .sbtn.rb:active{background:var(--green);}
+  .B .sbtn.ao{background:#3a2f14;} .B .sbtn.ao:active{background:var(--accent);}
+  .sbtn.ms{background:#2a2028; color:#c98a9a; font-size:13px;}
+  .sbtn.ms:active{background:var(--red); color:#fff;}
+  .prow.off .pinfo{opacity:.5;}
+
+  /* Report */
+  .reportTop{display:flex; gap:8px; flex-wrap:wrap; justify-content:space-between; align-items:center; margin-bottom:12px;}
+  .reportTop .btn{font-size:14px; padding:10px 14px;}
+  table{width:100%; border-collapse:collapse; font-size:12.5px; margin-bottom:6px;}
+  th,td{padding:6px 8px; text-align:right; border-bottom:1px solid var(--line); white-space:nowrap;}
+  th:first-child,td:first-child,th.l,td.l{text-align:left;}
+  th{color:var(--muted); font-weight:600; font-size:10.5px; text-transform:uppercase; letter-spacing:.03em;}
+  .tblWrap{overflow-x:auto; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px; margin-bottom:14px;}
+  .lineupcell{font-size:12px; white-space:normal; min-width:150px;}
+  .pos{color:var(--green);} .neg{color:var(--red);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ============ SETUP ============ -->
+<div id="setup">
+  <h1>3x3 Box Score & Lineup Tracker</h1>
+  <p class="muted" style="margin-top:-6px">Enter your roster, star your 3 starters, name the opponent, then track live.</p>
+
+  <div id="resumeBox" class="card hidden" style="border-color:var(--accent)">
+    <strong>Unfinished game found.</strong>
+    <p class="hint">There's a saved game in progress on this device.</p>
+    <div class="row">
+      <button class="btn primary" onclick="resumeGame()">Resume game</button>
+      <button class="btn ghost" onclick="discardSave()">Discard & start new</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Your team</h2>
+    <input class="grow" id="nameA" placeholder="Your team name" value="Canada" style="width:100%; margin-bottom:10px">
+    <div id="rosterA"></div>
+    <button class="btn ghost" onclick="addRow()">+ Add player</button>
+    <p class="hint">Tap the <b>★</b> on your three on-court starters. (3-on-3: exactly 3 starred.)</p>
+  </div>
+
+  <div class="card">
+    <h2>Opponent</h2>
+    <input class="grow" id="nameB" placeholder="Opponent name" value="Opponent" style="width:100%">
+    <p class="hint">The opponent is tracked as a single team total.</p>
+  </div>
+
+  <div class="card">
+    <button class="btn primary" style="width:100%; padding:16px; font-size:18px" onclick="startGame()">Start Game ▶</button>
+    <p id="setupErr" class="hint" style="color:var(--red)"></p>
+  </div>
+</div>
+
+<!-- ============ LIVE ============ -->
+<div id="live" class="hidden">
+  <div class="topbar">
+    <div class="scoreboard">
+      <div><div class="nm" id="lbA"></div><div class="sc" id="scA" style="color:var(--a)">0</div></div>
+      <div class="vs">–</div>
+      <div><div class="nm" id="lbB"></div><div class="sc" id="scB" style="color:var(--b)">0</div></div>
+    </div>
+    <div class="topActions">
+      <button class="btn ghost" onclick="undo()">↶ Undo</button>
+      <button class="btn primary" onclick="generate()">📊 Generate Data</button>
+      <button class="btn ghost" onclick="backToSetup()">⚙︎ Edit setup</button>
+    </div>
+  </div>
+
+  <div class="teamCard A" id="teamA"></div>
+  <div class="teamCard B" id="teamB"></div>
+
+  <p class="hint" style="text-align:center"><b>★</b> = on court (tap to sub). <b>+ Our Poss</b> after each offensive trip your team finishes; <b>+ Opp Poss</b> after each opponent trip. −1 / −2 / −FT = missed shots.</p>
+</div>
+
+<!-- ============ REPORT ============ -->
+<div id="report" class="hidden">
+  <div class="reportTop">
+    <h1 style="margin:0">Game Data</h1>
+    <div class="row">
+      <button class="btn ghost" onclick="showLive()">◀ Back to tracking</button>
+      <button class="btn primary" onclick="downloadAll()">⤓ Download all data (1 file)</button>
+      <button class="btn ghost" onclick="downloadOne('team')">Team CSV</button>
+      <button class="btn ghost" onclick="downloadOne('players')">Players CSV</button>
+      <button class="btn ghost" onclick="downloadOne('lineups')">Lineups CSV</button>
+    </div>
+  </div>
+  <div id="reportBody"></div>
+</div>
+
+</div>
+
+<script>
+/* ===================== STATE ===================== */
+let config=null;                 // {names:{A,B}, players:{A:[{id,num,name}]}, start:[ids]}
+let events=[];                   // event log
+let setupPlayers=[];             // [{id,num,name,start}]
+let pidc=0;
+const ONCOURT=3;
+const SAVE_KEY='tracker3x3Box_v1';
+const STAT_COLS=[['p1','+1','pt'],['m1','−1','ms'],['p2','+2','pt'],['m2','−2','ms'],['ft','FT','pt'],['mft','−FT','ms'],['or','OR','rb'],['dr','DR','rb'],['ast','AST','ao'],['to','TO','ao']];
+
+/* ===================== SETUP ===================== */
+function uid(){ return 'p'+Date.now().toString(36)+(pidc++); }
+function addRow(num='',name=''){ setupPlayers.push({id:uid(),num:String(num),name:name,start:false}); renderRoster(); }
+function renderRoster(){
+  const host=document.getElementById('rosterA'); host.innerHTML='';
+  setupPlayers.forEach(p=>{
+    const r=document.createElement('div'); r.className='rosterRow';
+    r.innerHTML=`
+      <input class="num" placeholder="#" value="${esc(p.num)}" onchange="setField('${p.id}','num',this.value)">
+      <input class="nm" placeholder="Player name" value="${esc(p.name)}" onchange="setField('${p.id}','name',this.value)">
+      <button class="pick ${p.start?'on':''}" title="Starter" onclick="toggleStart('${p.id}')">★</button>
+      <button class="del" onclick="delRow('${p.id}')">✕</button>`;
+    host.appendChild(r);
+  });
+}
+function setField(id,f,v){ const p=setupPlayers.find(x=>x.id===id); if(p)p[f]=v; }
+function delRow(id){ setupPlayers=setupPlayers.filter(x=>x.id!==id); renderRoster(); }
+function toggleStart(id){
+  const p=setupPlayers.find(x=>x.id===id);
+  const cur=setupPlayers.filter(x=>x.start).length;
+  if(!p.start && cur>=ONCOURT){ alert('Exactly '+ONCOURT+' starters. Unstar one first.'); return; }
+  p.start=!p.start; renderRoster();
+}
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function startGame(){
+  const err=document.getElementById('setupErr'); err.textContent='';
+  const clean=setupPlayers.filter(p=>p.name.trim()||p.num.trim());
+  if(clean.length<ONCOURT){ err.textContent='Add at least '+ONCOURT+' players.'; return; }
+  if(clean.filter(p=>p.start).length!==ONCOURT){ err.textContent='Star exactly '+ONCOURT+' starters.'; return; }
+  config={
+    names:{A:document.getElementById('nameA').value.trim()||'Us', B:document.getElementById('nameB').value.trim()||'Opponent'},
+    players:{A:clean.map(p=>({id:p.id,num:p.num.trim(),name:p.name.trim()||('#'+p.num.trim())}))},
+    start:clean.filter(p=>p.start).map(p=>p.id)
+  };
+  events=[]; save(); showLive();
+}
+
+/* ===================== ENGINE ===================== */
+function blankP(){ return {pf:0,pa:0,op:0,dp:0, aOR:0,aDR:0,bOR:0,bDR:0, p1:0,p2:0,ft:0, m1:0,m2:0,mft:0, oOR:0,oDR:0,oAst:0,oTo:0}; }
+function blankL(ids){ return {ids, pf:0,pa:0,op:0,dp:0, aOR:0,aDR:0,bOR:0,bDR:0, aAst:0,aTo:0, p1:0,p2:0,ft:0,m1:0,m2:0,mft:0}; }
+function replay(){
+  const onCourt=new Set(config.start);
+  const P={}; config.players.A.forEach(p=>P[p.id]=blankP());
+  const L={};
+  const A={pf:0,pa:0,op:0,dp:0,aOR:0,aDR:0,bOR:0,bDR:0,p1:0,p2:0,ft:0,m1:0,m2:0,mft:0,aAst:0,aTo:0};
+  const B={p1:0,p2:0,ft:0,m1:0,m2:0,mft:0,OR:0,DR:0,ast:0,to:0,op:0};
+  let scoreA=0,scoreB=0;
+  const lkey=()=>[...onCourt].sort().join(',');
+  function curL(){ const k=lkey(); if(!L[k])L[k]=blankL([...onCourt].sort()); return L[k]; }
+  const eachOC=cb=>onCourt.forEach(id=>{ if(P[id])cb(P[id]); });
+  for(const e of events){
+    if(e.t==='star'){ e.on?onCourt.add(e.id):onCourt.delete(e.id); continue; }
+    if(e.t==='poss'){
+      if(e.team==='A'){ eachOC(s=>s.op++); curL().op++; A.op++; }
+      else { eachOC(s=>s.dp++); curL().dp++; A.dp++; B.op++; }
+      continue;
+    }
+    if(e.t==='stat'){
+      const s=e.s;
+      if(e.team==='A'){
+        const me=P[e.id]; if(!me) continue;
+        if(s==='p1'||s==='p2'||s==='ft'){ const pts=s==='p2'?2:1; scoreA+=pts; me[s]++;
+          eachOC(x=>x.pf+=pts); const l=curL(); l.pf+=pts; l[s]++; A.pf+=pts; A[s]++; }
+        else if(s==='m1'||s==='m2'||s==='mft'){ me[s]++; curL()[s]++; A[s]++; }
+        else if(s==='or'){ me.oOR++; eachOC(x=>x.aOR++); curL().aOR++; A.aOR++; }
+        else if(s==='dr'){ me.oDR++; eachOC(x=>x.aDR++); curL().aDR++; A.aDR++; }
+        else if(s==='ast'){ me.oAst++; curL().aAst++; A.aAst++; }
+        else if(s==='to'){ me.oTo++; curL().aTo++; A.aTo++; }
+      } else {
+        if(s==='p1'||s==='p2'||s==='ft'){ const pts=s==='p2'?2:1; scoreB+=pts;
+          eachOC(x=>x.pa+=pts); curL().pa+=pts; A.pa+=pts;
+          if(s==='p1')B.p1++; else if(s==='p2')B.p2++; else B.ft++; }
+        else if(s==='m1'||s==='m2'||s==='mft'){ B[s]++; }
+        else if(s==='or'){ B.OR++; eachOC(x=>x.bOR++); curL().bOR++; A.bOR++; }
+        else if(s==='dr'){ B.DR++; eachOC(x=>x.bDR++); curL().bDR++; A.bDR++; }
+        else if(s==='ast'){ B.ast++; }
+        else if(s==='to'){ B.to++; }
+      }
+    }
+  }
+  return {onCourt,P,L,A,B,scoreA,scoreB};
+}
+
+/* ===================== LIVE ACTIONS ===================== */
+function stat(team,id,s){ events.push(id?{t:'stat',team,id,s}:{t:'stat',team,s}); after(); }
+function poss(team){ events.push({t:'poss',team}); after(); }
+function toggleCourt(id){
+  const st=replay(); const on=st.onCourt.has(id);
+  if(!on && st.onCourt.size>=ONCOURT){ alert('Only '+ONCOURT+' on court. Tap a starred player off first.'); return; }
+  events.push({t:'star',id,on:!on}); after();
+}
+function undo(){ if(events.length){ events.pop(); after(); } }
+function after(){ save(); renderLive(); }
+
+/* ===================== LIVE RENDER ===================== */
+function showLive(){ ['setup','report'].forEach(x=>document.getElementById(x).classList.add('hidden'));
+  document.getElementById('live').classList.remove('hidden'); renderLive(); }
+function backToSetup(){ ['live','report'].forEach(x=>document.getElementById(x).classList.add('hidden'));
+  document.getElementById('setup').classList.remove('hidden'); }
+
+function pm(v){ const s=(v>0?'+':'')+v; return `<span class="${v>0?'pos':(v<0?'neg':'')}">${s}</span>`; }
+
+function renderLive(){
+  const st=replay();
+  document.getElementById('lbA').textContent=config.names.A;
+  document.getElementById('lbB').textContent=config.names.B;
+  document.getElementById('scA').textContent=st.scoreA;
+  document.getElementById('scB').textContent=st.scoreB;
+
+  const hdr = `<div class="hcell name">Player</div>` + STAT_COLS.map(c=>`<div class="hcell">${c[1]}</div>`).join('');
+  let rows='';
+  config.players.A.forEach(p=>{
+    const on=st.onCourt.has(p.id); const s=st.P[p.id];
+    const own=s.p1+2*s.p2+s.ft;
+    const cells=STAT_COLS.map(c=>`<button class="sbtn ${c[2]}" ${on?'':'disabled'} onclick="stat('A','${p.id}','${c[0]}')">${c[1]}</button>`).join('');
+    rows+=`<div class="pcell prow ${on?'':'off'}">
+        <button class="starbtn ${on?'on':''}" onclick="toggleCourt('${p.id}')">★</button>
+        <div class="pinfo"><div class="pn">${esc(p.num?('#'+p.num+' '):'')}${esc(p.name)}</div>
+        <div class="pmi">${pm(s.pf-s.pa)} · ${own}p ${s.oOR+s.oDR}r ${s.oAst}a ${s.oTo}to</div></div>
+      </div>${cells}`;
+  });
+  document.getElementById('teamA').innerHTML=`
+    <div class="tcHead"><div><div class="tn">${esc(config.names.A)}</div>
+      <div class="oc">On court ${st.onCourt.size}/${ONCOURT} · Off poss ${st.A.op} · Def poss ${st.A.dp}</div></div>
+      <button class="possBtn" onclick="poss('A')">+ Our Poss ▶</button></div>
+    <div class="gridScroll"><div class="statGrid">${hdr}${rows}</div></div>`;
+
+  const oCells=STAT_COLS.map(c=>`<button class="sbtn ${c[2]}" onclick="stat('B',null,'${c[0]}')">${c[1]}</button>`).join('');
+  const b=st.B;
+  document.getElementById('teamB').innerHTML=`
+    <div class="tcHead"><div><div class="tn">${esc(config.names.B)} (team total)</div>
+      <div class="oc">${st.scoreB} pts · ${b.OR+b.DR} reb · ${b.ast} ast · ${b.to} to</div></div>
+      <button class="possBtn def" onclick="poss('B')">+ Opp Poss ▶</button></div>
+    <div class="gridScroll"><div class="statGrid">
+      ${`<div class="hcell name">Opponent</div>`+STAT_COLS.map(c=>`<div class="hcell">${c[1]}</div>`).join('')}
+      <div class="pcell"><div class="pinfo"><div class="pn">${esc(config.names.B)}</div><div class="pmi">all opponent stats</div></div></div>
+      ${oCells}
+    </div></div>`;
+}
+
+/* ===================== METRICS ===================== */
+const R100=(n,d)=>d>0?n/d*100:null;
+const PCT=(n,d)=>d>0?n/d*100:null;
+const RATIO=(n,d)=>d>0?n/d:null;
+function f1(v){ return v===null?'—':v.toFixed(1); }
+function f2(v){ return v===null?'—':v.toFixed(2); }
+function net(o,d){ return (o===null||d===null)?null:o-d; }
+function ts(pts,fga,fta){ return (fga+0.44*fta)>0 ? pts/(2*(fga+0.44*fta))*100 : null; }
+
+function playerMetrics(s){
+  const own=s.p1+2*s.p2+s.ft;
+  const o=R100(s.pf,s.op), d=R100(s.pa,s.dp);
+  const FGA=s.p1+s.p2+s.m1+s.m2, FGM=s.p1+s.p2, P2A=s.p2+s.m2, FTA=s.ft+s.mft;
+  return {
+    pts:own, FGp:PCT(FGM,FGA), P2p:PCT(s.p2,P2A), FTp:PCT(s.ft,FTA),
+    TSp:ts(own,FGA,FTA),
+    PPP:(FGA+0.44*FTA+s.oTo)>0?own/(FGA+0.44*FTA+s.oTo):null,
+    pm:s.pf-s.pa, ORtg:o, DRtg:d, Net:net(o,d),
+    OR:s.oOR, DR:s.oDR, Ast:s.oAst, TO:s.oTo,
+    ASTTO:RATIO(s.oAst,s.oTo), ASTp:PCT(s.oAst,s.op), TOp:PCT(s.oTo,s.op),
+    ORebp:PCT(s.aOR,s.aOR+s.bDR), DRebp:PCT(s.aDR,s.aDR+s.bOR), NetRebp:PCT(s.aOR+s.aDR,s.aOR+s.aDR+s.bOR+s.bDR),
+    op:s.op, dp:s.dp
+  };
+}
+function lineupMetrics(l){
+  const o=R100(l.pf,l.op), d=R100(l.pa,l.dp);
+  const FGA=l.p1+l.p2+l.m1+l.m2, FGM=l.p1+l.p2, P2A=l.p2+l.m2, FTA=l.ft+l.mft, own=l.p1+2*l.p2+l.ft;
+  return {
+    pf:l.pf, pa:l.pa, FGp:PCT(FGM,FGA), P2p:PCT(l.p2,P2A), FTp:PCT(l.ft,FTA),
+    TSp:ts(own,FGA,FTA), PPP:RATIO(l.pf,l.op),
+    pm:l.pf-l.pa, ORtg:o, DRtg:d, Net:net(o,d),
+    OR:l.aOR, DR:l.aDR, Ast:l.aAst, TO:l.aTo,
+    ASTTO:RATIO(l.aAst,l.aTo), ASTp:PCT(l.aAst,l.op), TOp:PCT(l.aTo,l.op),
+    ORebp:PCT(l.aOR,l.aOR+l.bDR), DRebp:PCT(l.aDR,l.aDR+l.bOR), NetRebp:PCT(l.aOR+l.aDR,l.aOR+l.aDR+l.bOR+l.bDR),
+    op:l.op, dp:l.dp
+  };
+}
+
+/* ===================== REPORT ===================== */
+const PCOLS=[['Pts','pts',0],['FG%','FGp',1],['2P%','P2p',1],['FT%','FTp',1],['TS%','TSp',1],['PPP','PPP',2],
+  ['+/-','pm','pm'],['ORtg','ORtg',1],['DRtg','DRtg',1],['Net','Net',1],
+  ['OR','OR',0],['DR','DR',0],['Ast','Ast',0],['TO','TO',0],['Ast:TO','ASTTO',2],
+  ['Ast%','ASTp',1],['TO%','TOp',1],['OReb%','ORebp',1],['DReb%','DRebp',1],['NetReb%','NetRebp',1],
+  ['OffPoss','op',0],['DefPoss','dp',0]];
+function fmt(v,mode){ if(mode==='pm') return pm(v); if(mode===0) return v; if(mode===1) return f1(v); if(mode===2) return f2(v); return v; }
+
+function generate(){
+  const st=replay();
+  document.getElementById('reportBody').innerHTML=teamSummary(st)+playerTable(st)+lineupTable(st);
+  ['live','setup'].forEach(x=>document.getElementById(x).classList.add('hidden'));
+  document.getElementById('report').classList.remove('hidden');
+  window.scrollTo(0,0);
+}
+function teamSummary(st){
+  const A=st.A, o=R100(A.pf,A.op), d=R100(A.pa,A.dp);
+  const aFGA=A.p1+A.p2+A.m1+A.m2, aFTA=A.ft+A.mft;
+  const arow=`<tr><td class="l">${esc(config.names.A)}</td><td>${st.scoreA}</td>
+    <td>${f1(PCT(A.p1+A.p2,aFGA))}</td><td>${f1(PCT(A.p2,A.p2+A.m2))}</td><td>${f1(PCT(A.ft,aFTA))}</td>
+    <td>${f1(ts(st.scoreA,aFGA,aFTA))}</td><td>${f2(RATIO(A.pf,A.op))}</td>
+    <td>${pm(A.pf-A.pa)}</td><td>${f1(o)}</td><td>${f1(d)}</td><td>${f1(net(o,d))}</td>
+    <td>${A.aOR}</td><td>${A.aDR}</td><td>${A.aAst}</td><td>${A.aTo}</td><td>${f2(RATIO(A.aAst,A.aTo))}</td>
+    <td>${f1(PCT(A.aOR,A.aOR+A.bDR))}</td><td>${f1(PCT(A.aDR,A.aDR+A.bOR))}</td><td>${f1(PCT(A.aOR+A.aDR,A.aOR+A.aDR+A.bOR+A.bDR))}</td>
+    <td>${A.op}</td><td>${A.dp}</td></tr>`;
+  const B=st.B, bFGA=B.p1+B.p2+B.m1+B.m2, bFTA=B.ft+B.mft;
+  const brow=`<tr><td class="l">${esc(config.names.B)}</td><td>${st.scoreB}</td>
+    <td>${f1(PCT(B.p1+B.p2,bFGA))}</td><td>${f1(PCT(B.p2,B.p2+B.m2))}</td><td>${f1(PCT(B.ft,bFTA))}</td>
+    <td>${f1(ts(st.scoreB,bFGA,bFTA))}</td><td>${f2(RATIO(st.scoreB,B.op))}</td>
+    <td>${pm(A.pa-A.pf)}</td><td>—</td><td>—</td><td>—</td>
+    <td>${B.OR}</td><td>${B.DR}</td><td>${B.ast}</td><td>${B.to}</td><td>${f2(RATIO(B.ast,B.to))}</td>
+    <td>—</td><td>—</td><td>—</td><td>${B.op}</td><td>${A.op}</td></tr>`;
+  return `<div class="tblWrap"><h3>Team totals</h3><table>
+    <tr><th class="l">Team</th><th>Pts</th><th>FG%</th><th>2P%</th><th>FT%</th><th>TS%</th><th>PPP</th><th>+/-</th><th>ORtg</th><th>DRtg</th><th>Net</th>
+    <th>OR</th><th>DR</th><th>Ast</th><th>TO</th><th>Ast:TO</th><th>OReb%</th><th>DReb%</th><th>NetReb%</th><th>OffPoss</th><th>DefPoss</th></tr>
+    ${arow}${brow}</table></div>`;
+}
+function playerTable(st){
+  const rows=config.players.A.map(p=>({p,m:playerMetrics(st.P[p.id])})).sort((a,b)=>b.m.pm-a.m.pm);
+  const head=`<tr><th class="l">#</th><th class="l">Name</th>`+PCOLS.map(c=>`<th>${c[0]}</th>`).join('')+`</tr>`;
+  const body=rows.map(r=>`<tr><td class="l">${esc(r.p.num)}</td><td class="l">${esc(r.p.name)}</td>`+
+    PCOLS.map(c=>`<td>${fmt(r.m[c[1]],c[2])}</td>`).join('')+`</tr>`).join('');
+  return `<div class="tblWrap"><h3>${esc(config.names.A)} — Individual</h3><table>${head}${body}</table></div>`;
+}
+function lineupTable(st){
+  const ls=Object.values(st.L).map(l=>({l,m:lineupMetrics(l)})).sort((a,b)=>b.m.pm-a.m.pm);
+  const cols=[['PtsFor','pf',0],['PtsAgst','pa',0]].concat(PCOLS.slice(1));
+  const head=`<tr><th class="l">Lineup</th>`+cols.map(c=>`<th>${c[0]}</th>`).join('')+`</tr>`;
+  const body=ls.map(r=>{
+    const names=r.l.ids.map(id=>{const p=config.players.A.find(x=>x.id===id); return p.num?('#'+p.num):p.name;}).join(', ');
+    return `<tr><td class="l lineupcell">${esc(names)}</td>`+cols.map(c=>`<td>${fmt(r.m[c[1]],c[2])}</td>`).join('')+`</tr>`;
+  }).join('');
+  return `<div class="tblWrap"><h3>${esc(config.names.A)} — Lineups (3-man units)</h3><table>${head}${body}</table>
+    <p class="hint">A new lineup row appears whenever the on-court three changes.</p></div>`;
+}
+
+/* ===================== CSV ===================== */
+function csvEsc(v){ v=(v===null||v===undefined)?'':String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
+function toCSV(rows){ return rows.map(r=>r.map(csvEsc).join(',')).join('\n'); }
+function dl(name,text){ const b=new Blob(['﻿'+text],{type:'text/csv;charset=utf-8;'}); const a=document.createElement('a');
+  a.href=URL.createObjectURL(b); a.download=name; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000); }
+const num=v=>v===null?'':(''+(Math.round(v*100)/100));
+function playersCSV(st){
+  const H=['#','Name','Pts','FGM','FGA','FGpct','2PM','2PA','2Ppct','FTM','FTA','FTpct','TSpct','PPP','PlusMinus','ORtg','DRtg','NetRtg','OReb','DReb','Ast','TO','AstToRatio','AstPct','ToPct','ORebPct','DRebPct','NetRebPct','OffPoss','DefPoss'];
+  const rows=[H];
+  config.players.A.forEach(p=>{ const s=st.P[p.id], m=playerMetrics(s);
+    rows.push([p.num,p.name,m.pts,s.p1+s.p2,s.p1+s.p2+s.m1+s.m2,num(m.FGp),s.p2,s.p2+s.m2,num(m.P2p),s.ft,s.ft+s.mft,num(m.FTp),num(m.TSp),num(m.PPP),
+      m.pm,num(m.ORtg),num(m.DRtg),num(m.Net),m.OR,m.DR,m.Ast,m.TO,num(m.ASTTO),num(m.ASTp),num(m.TOp),num(m.ORebp),num(m.DRebp),num(m.NetRebp),m.op,m.dp]); });
+  return toCSV(rows);
+}
+function lineupsCSV(st){
+  const H=['Lineup','PtsFor','PtsAgainst','FGM','FGA','FGpct','2PM','2PA','2Ppct','FTM','FTA','FTpct','TSpct','PPP','PlusMinus','ORtg','DRtg','NetRtg','OReb','DReb','Ast','TO','AstToRatio','AstPct','ToPct','ORebPct','DRebPct','NetRebPct','OffPoss','DefPoss'];
+  const rows=[H];
+  Object.values(st.L).forEach(l=>{ const m=lineupMetrics(l);
+    const names=l.ids.map(id=>{const p=config.players.A.find(x=>x.id===id); return (p.num?('#'+p.num+' '):'')+p.name;}).join(' | ');
+    rows.push([names,m.pf,m.pa,l.p1+l.p2,l.p1+l.p2+l.m1+l.m2,num(m.FGp),l.p2,l.p2+l.m2,num(m.P2p),l.ft,l.ft+l.mft,num(m.FTp),num(m.TSp),num(m.PPP),
+      m.pm,num(m.ORtg),num(m.DRtg),num(m.Net),m.OR,m.DR,m.Ast,m.TO,num(m.ASTTO),num(m.ASTp),num(m.TOp),num(m.ORebp),num(m.DRebp),num(m.NetRebp),m.op,m.dp]); });
+  return toCSV(rows);
+}
+function teamCSV(st){
+  const A=st.A, aFGA=A.p1+A.p2+A.m1+A.m2, aFTA=A.ft+A.mft;
+  const rows=[['Team','Pts','FGM','FGA','FGpct','2PM','2PA','2Ppct','FTM','FTA','FTpct','TSpct','PPP','PlusMinus','ORtg','DRtg','NetRtg','OReb','DReb','Ast','TO','AstToRatio','ORebPct','DRebPct','NetRebPct','OffPoss','DefPoss']];
+  rows.push([config.names.A,st.scoreA,A.p1+A.p2,aFGA,num(PCT(A.p1+A.p2,aFGA)),A.p2,A.p2+A.m2,num(PCT(A.p2,A.p2+A.m2)),A.ft,aFTA,num(PCT(A.ft,aFTA)),num(ts(st.scoreA,aFGA,aFTA)),num(RATIO(A.pf,A.op)),
+    A.pf-A.pa,num(R100(A.pf,A.op)),num(R100(A.pa,A.dp)),num(net(R100(A.pf,A.op),R100(A.pa,A.dp))),
+    A.aOR,A.aDR,A.aAst,A.aTo,num(RATIO(A.aAst,A.aTo)),num(PCT(A.aOR,A.aOR+A.bDR)),num(PCT(A.aDR,A.aDR+A.bOR)),num(PCT(A.aOR+A.aDR,A.aOR+A.aDR+A.bOR+A.bDR)),A.op,A.dp]);
+  const B=st.B, bFGA=B.p1+B.p2+B.m1+B.m2, bFTA=B.ft+B.mft;
+  rows.push([config.names.B,st.scoreB,B.p1+B.p2,bFGA,num(PCT(B.p1+B.p2,bFGA)),B.p2,B.p2+B.m2,num(PCT(B.p2,B.p2+B.m2)),B.ft,bFTA,num(PCT(B.ft,bFTA)),num(ts(st.scoreB,bFGA,bFTA)),num(RATIO(st.scoreB,B.op)),
+    A.pa-A.pf,'','','',B.OR,B.DR,B.ast,B.to,num(RATIO(B.ast,B.to)),'','','',B.op,A.op]);
+  return toCSV(rows);
+}
+function fileBase(){
+  const stamp=new Date().toISOString().slice(0,16).replace(/[:T]/g,'-');
+  return (config.names.A+'_vs_'+config.names.B+'_3x3_'+stamp).replace(/[^\w-]+/g,'_');
+}
+// One file with all three sections (browsers block several automatic downloads at once)
+function downloadAll(){
+  const st=replay();
+  const text='TEAM TOTALS\n'+teamCSV(st)+'\n\nPLAYERS\n'+playersCSV(st)+'\n\nLINEUPS\n'+lineupsCSV(st);
+  dl(fileBase()+'_all.csv',text);
+}
+function downloadOne(which){
+  const st=replay();
+  const fn={team:teamCSV,players:playersCSV,lineups:lineupsCSV}[which];
+  dl(fileBase()+'_'+which+'.csv',fn(st));
+}
+
+/* ===================== PERSISTENCE ===================== */
+function save(){ try{ localStorage.setItem(SAVE_KEY,JSON.stringify({config,events})); }catch(e){} }
+function resumeGame(){ try{ const d=JSON.parse(localStorage.getItem(SAVE_KEY)); config=d.config; events=d.events||[];
+  document.getElementById('resumeBox').classList.add('hidden'); showLive(); }catch(e){ alert('Could not load save.'); } }
+function discardSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} document.getElementById('resumeBox').classList.add('hidden'); }
+
+/* ===================== INIT ===================== */
+function init(){
+  for(let i=0;i<4;i++) setupPlayers.push({id:uid(),num:'',name:'',start:false});
+  renderRoster();
+  try{ const d=localStorage.getItem(SAVE_KEY); if(d&&JSON.parse(d).config) document.getElementById('resumeBox').classList.remove('hidden'); }catch(e){}
+}
+init();
+</script>
+</body>
+</html>
